@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Управление пользователями</title>
+    <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+    <div id="manage-users">
+    <h1>Управление пользователями</h1>
+    <button id="back-btn">Назад</button>
+
+    <!-- Сообщения об успехе или ошибке -->
+    <div class="alert success" style="display: none;" id="success-message">Пользователь успешно обновлен!</div>
+    <div class="alert error" style="display: none;" id="error-message">Произошла ошибка при обновлении!</div>
+
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Имя пользователя</th>
+                <th>Email</th>
+                <th>Телефон</th>
+                <th>Роль</th>
+                <th>Действия</th>
+            </tr>
+        </thead>
+        <tbody id="user-table-body"></tbody>
+    </table>
+</div>
+
+
+    <script src="manageUsers.js"></script>
+</body>
+</html>
