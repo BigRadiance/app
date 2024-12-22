@@ -1,17 +1,17 @@
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const bcrypt = require('bcrypt');
-const db = require('./db/db');  // Подключаем базу данных
+const db = require('./db/db'); // Подключение базы данных
 
-// Динамический импорт для модуля electron-is-dev
+// Динамический импорт electron-is-dev
 let isDev;
 (async () => {
     isDev = (await import('electron-is-dev')).default;
 })();
 
 let mainWindow;
-let currentUser = null;
 
+// Функция создания главного окна
 function createWindow() {
     mainWindow = new BrowserWindow({
         width: 800,
@@ -33,54 +33,62 @@ function createWindow() {
     });
 }
 
-// Функция для регистрации супер админа, если его нет в базе
+// Функция создания супер админа
 db.serialize(() => {
     db.get("SELECT * FROM users WHERE username = 'superadmin'", (err, row) => {
         if (!row) {
-            // Создаем супер администратора, если его нет
             const hashedPassword = bcrypt.hashSync('admin123', 10);
             db.run("INSERT INTO users (username, password, email, role) VALUES (?, ?, ?, ?)", ['superadmin', hashedPassword, 'admin@admin.com', 'super_admin']);
         }
     });
 });
 
-// Обработчик для логина
+// Обработчики логина и регистрации
 ipcMain.handle('login', async (event, { loginOrEmail, password }) => {
-    const user = await new Promise((resolve, reject) => {
-        db.get("SELECT * FROM users WHERE username = ? OR email = ?", [loginOrEmail, loginOrEmail], (err, row) => {
-            if (err) reject(err);
-            resolve(row);
+    try {
+        // Получаем пользователя по имени или email
+        const user = await new Promise((resolve, reject) => {
+            db.get("SELECT * FROM users WHERE username = ? OR email = ?", [loginOrEmail, loginOrEmail], (err, row) => {
+                if (err) reject(err);
+                resolve(row);
+            });
         });
-    });
 
-    if (!user) {
-        return { success: false, message: "User not found" };
-    }
-
-    const match = await bcrypt.compare(password, user.password);
-    if (!match) {
-        return { success: false, message: "Incorrect password" };
-    }
-
-    // Загружаем меню в зависимости от роли, если окно еще не открыто
-    if (user.role === 'super_admin') {
-        if (mainWindow.webContents.getURL() !== `file://${path.join(__dirname, 'src', 'superadmin', 'superAdminMenu.html')}`) {
-            mainWindow.loadFile(path.join(__dirname, 'src', 'superadmin', 'superAdminMenu.html'));
+        // Если пользователь не найден
+        if (!user) {
+            return { success: false, message: "User not found" };
         }
-    } else if (user.role === 'admin') {
-        if (mainWindow.webContents.getURL() !== `file://${path.join(__dirname, 'src', 'admin', 'adminMenu.html')}`) {
-            mainWindow.loadFile(path.join(__dirname, 'src', 'admin', 'adminMenu.html'));
-        }
-    } else if (user.role === 'user') {
-        if (mainWindow.webContents.getURL() !== `file://${path.join(__dirname, 'src', 'user', 'userMenu.html')}`) {
-            mainWindow.loadFile(path.join(__dirname, 'src', 'user', 'userMenu.html'));
-        }
-    }
 
-    return { success: true, role: user.role };
+        // Проверка пароля
+        const match = await bcrypt.compare(password, user.password);
+        if (!match) {
+            return { success: false, message: "Incorrect password" };
+        }
+
+        // Сохраняем ID текущего пользователя в глобальную переменную
+        global.currentUserId = user.id;
+
+        // Страницы для различных ролей
+        const rolePages = {
+            super_admin: 'superadmin/superAdminMenu.html',
+            admin: 'admin/adminMenu.html',
+            user: 'user/userMenu.html',
+        };
+
+        // Загружаем соответствующую страницу в зависимости от роли пользователя
+        if (rolePages[user.role]) {
+            mainWindow.loadFile(path.join(__dirname, 'src', rolePages[user.role]));
+        }
+
+        // Возвращаем успешный ответ и роль пользователя
+        return { success: true, role: user.role };
+    } catch (error) {
+        console.error('Ошибка при обработке логина:', error);
+        return { success: false, message: 'Произошла ошибка при входе' };
+    }
 });
 
-// Обработчик для регистрации нового пользователя
+
 ipcMain.handle('register', async (event, { username, password, email, phone }) => {
     const existingUser = await new Promise((resolve, reject) => {
         db.get("SELECT * FROM users WHERE username = ?", [username], (err, row) => {
@@ -94,14 +102,7 @@ ipcMain.handle('register', async (event, { username, password, email, phone }) =
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-
-    const roles = ['super_admin', 'admin', 'user'];
-    let role = 'user'; // Default role
-    if (username === 'admin') {
-        role = 'admin';
-    } else if (username === 'superadmin') {
-        role = 'super_admin';
-    }
+    const role = username === 'superadmin' ? 'super_admin' : username === 'admin' ? 'admin' : 'user';
 
     await new Promise((resolve, reject) => {
         db.run(
@@ -117,7 +118,127 @@ ipcMain.handle('register', async (event, { username, password, email, phone }) =
     return { success: true };
 });
 
-// Запуск окна
+// Управление пользователями
+ipcMain.handle('updateUserRole', async (event, userId, newRole) => {
+    try {
+        const sql = 'UPDATE users SET role = ? WHERE id = ?';
+        await new Promise((resolve, reject) => {
+            db.run(sql, [newRole, userId], (err) => {
+                if (err) reject(err);
+                else resolve();
+            });
+        });
+        return { success: true };
+    } catch (error) {
+        return { success: false, message: "Failed to update role" };
+    }
+});
+
+ipcMain.handle('getAllUsers', async () => {
+    return new Promise((resolve, reject) => {
+        db.all("SELECT * FROM users", [], (err, rows) => {
+            if (err) reject(err);
+            resolve(rows);
+        });
+    });
+});
+
+// Управление недвижимостью
+ipcMain.handle('getProperties', () => {
+    return new Promise((resolve, reject) => {
+        db.all('SELECT * FROM properties', (err, rows) => {
+            if (err) reject(err);
+            resolve(rows);
+        });
+    });
+});
+
+ipcMain.handle('addProperty', async (_, { title, description, price, address }) => {
+    return new Promise((resolve, reject) => {
+        db.run(
+            "INSERT INTO properties (title, description, price, status, address) VALUES (?, ?, ?, 'активен', ?)",
+            [title, description, price, address],
+            function (err) {
+                if (err) reject(err);
+                else resolve({ id: this.lastID });
+            }
+        );
+    });
+});
+
+ipcMain.handle('editProperty', async (_, { id, title, description, price, address }) => {
+    return new Promise((resolve, reject) => {
+        db.run(
+            "UPDATE properties SET title = ?, description = ?, price = ?, address = ? WHERE id = ?",
+            [title, description, price, address, id],
+            function (err) {
+                if (err) reject(err);
+                else resolve({ success: true });
+            }
+        );
+    });
+});
+
+ipcMain.handle('deleteProperty', (event, id) => {
+    return new Promise((resolve, reject) => {
+        db.run('DELETE FROM properties WHERE id = ?', [id], (err) => {
+            if (err) reject(err);
+            else resolve();
+        });
+    });
+});
+
+ipcMain.handle('updatePropertyStatus', async (_, { id, status }) => {
+    return new Promise((resolve, reject) => {
+        db.run("UPDATE properties SET status = ? WHERE id = ?", [status, id], function (err) {
+            if (err) reject(err);
+            else resolve({ success: true });
+        });
+    });
+});
+
+ipcMain.handle('getCurrentUserId', async (event) => {
+    try {
+        if (!global.currentUserId) {
+            throw new Error('Текущий пользователь не определён');
+        }
+        console.log(`Возвращается текущий пользователь с ID: ${global.currentUserId}`);
+        return global.currentUserId;
+    } catch (error) {
+        console.error('Ошибка при получении текущего пользователя:', error);
+        throw error;
+    }
+});
+
+//Бронирование
+ipcMain.handle('reserveProperty', (event, propertyId, userId) => {
+    return new Promise((resolve, reject) => {
+        db.run(
+            "UPDATE properties SET booked_by = ?, status = 'забронирован' WHERE id = ? AND status = 'активен'",
+            [userId, propertyId],
+            function (err) {
+                if (err) reject(err);
+                else resolve({ success: true });
+            }
+        );
+    });
+});
+
+// Обработчик отмены бронирования
+ipcMain.handle('cancelReservation', (event, { propertyId, userId }) => {
+    return new Promise((resolve, reject) => {
+        db.run(
+            "UPDATE properties SET booked_by = NULL, status = 'активен' WHERE id = ? AND booked_by = ?",
+            [propertyId, userId],
+            function (err) {
+                if (err) reject(err);
+                else resolve({ success: true });
+            }
+        );
+    });
+});
+
+// Инициализация приложения
 app.whenReady().then(() => {
     createWindow();
     app.on('activate', () => {
@@ -127,266 +248,8 @@ app.whenReady().then(() => {
     });
 });
 
-// Закрытие приложения
 app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') {
         app.quit();
     }
 });
-
-
-// Обработчик для обновления роли пользователя
-ipcMain.handle('updateUserRole', async (event, userId, newRole) => {
-    try {
-        // Пример SQL запроса для обновления роли пользователя
-        const sql = 'UPDATE users SET role = ? WHERE id = ?';
-        await new Promise((resolve, reject) => {
-            db.run(sql, [newRole, userId], (err) => {
-                if (err) {
-                    reject(err); // Ошибка в запросе
-                } else {
-                    resolve(); // Успешное выполнение
-                }
-            });
-        });
-
-        return { success: true }; // Если все прошло успешно
-    } catch (error) {
-        console.error("Ошибка при обновлении роли:", error);
-        return { success: false, message: "Не удалось обновить роль" }; // Возвращаем ошибку
-    }
-});
-
-ipcMain.handle('getAllUsers', async () => {
-    try {
-        const users = await new Promise((resolve, reject) => {
-            db.all("SELECT * FROM users", [], (err, rows) => {
-                if (err) reject(err);
-                resolve(rows);
-            });
-        });
-        return users;
-    } catch (error) {
-        console.error("Ошибка при получении пользователей:", error);
-        return [];
-    }
-});
-
-ipcMain.handle('updateUser', async (event, { id, role }) => {
-    try {
-        const result = await new Promise((resolve, reject) => {
-            db.run("UPDATE users SET role = ? WHERE id = ?", [role, id], function(err) {
-                if (err) reject(err);
-                resolve(this.changes);
-            });
-        });
-
-        return result > 0 ? { success: true } : { success: false };
-    } catch (error) {
-        console.error("Ошибка при обновлении пользователя:", error);
-        return { success: false };
-    }
-});
-
-
-
-ipcMain.handle('deleteUser', async (event, { id }) => {
-    try {
-        const result = await new Promise((resolve, reject) => {
-            db.run("DELETE FROM users WHERE id = ?", [id], function(err) {
-                if (err) reject(err);
-                resolve(this.changes);
-            });
-        });
-
-        return result > 0 ? { success: true } : { success: false };
-    } catch (error) {
-        console.error("Ошибка при удалении пользователя:", error);
-        return { success: false };
-    }
-});
-ipcMain.on('open-manage-properties', () => {
-    createManagePropertiesWindow();
-});
-// Получение всех свойств
-ipcMain.handle('getProperties', (event) => {
-    return new Promise((resolve, reject) => {
-        db.all('SELECT * FROM properties', (err, rows) => {
-            if (err) {
-                reject(err);
-            } else {
-                resolve(rows);
-            }
-        });
-    });
-});
-
-// Добавление недвижимости
-ipcMain.handle("addProperty", async (_, { title, description, price, address }) => {
-    return new Promise((resolve, reject) => {
-        db.run(
-            "INSERT INTO properties (title, description, price, status, address) VALUES (?, ?, ?, 'активен', ?)",  // добавляем ? для address
-            [title, description, price, address],  // передаем address как параметр
-            function (err) {
-                if (err) reject(err);
-                else resolve({ id: this.lastID });
-            }
-        );
-    });
-});
-
-
-// Редактирование недвижимости
-ipcMain.handle("editProperty", async (_, { id, title, description, price, address }) => {
-    return new Promise((resolve, reject) => {
-        db.run(
-            "UPDATE properties SET title = ?, description = ?, price = ?, address = ? WHERE id = ?",
-            [title, description, price, address, id],  // передаем address как параметр
-            function (err) {
-                if (err) reject(err);
-                else resolve({ success: true });
-            }
-        );
-    });
-});
-
-
-// Удаление недвижимости
-ipcMain.handle('deleteProperty', (event, id) => {
-    return new Promise((resolve, reject) => {
-        db.run('DELETE FROM properties WHERE id = ?', [id], (err) => {
-            if (err) {
-                reject(err);
-            } else {
-                resolve();
-            }
-        });
-    });
-});
-
-// Изменение статуса недвижимости
-ipcMain.handle("updatePropertyStatus", async (_, { id, status }) => {
-    return new Promise((resolve, reject) => {
-        db.run(
-            "UPDATE properties SET status = ? WHERE id = ?",
-            [status, id],
-            function (err) {
-                if (err) reject(err);
-                else resolve({ success: true });
-            }
-        );
-    });
-});
-
-// Обработчик для бронирования недвижимости
-ipcMain.handle('reserveProperty', (event, propertyId, userId) => {
-  console.log("propertyId:", propertyId);
-    return new Promise((resolve, reject) => {
-        const statusQuery = `SELECT status FROM properties WHERE id = ?`;
-        db.get(statusQuery, [propertyId], (statusErr, row) => {
-            if (statusErr) {
-                console.error("Ошибка при проверке статуса недвижимости:", statusErr.message);
-                return resolve({ success: false, message: 'Ошибка при проверке статуса недвижимости' });
-            }
-
-            if (!row) {
-                return resolve({ success: false, message: 'Недвижимость не найдена' });
-            }
-
-            const currentStatus = row.status.toLowerCase();
-
-            if (['продан', 'арендован', 'забронирован'].includes(currentStatus)) {
-                return resolve({
-                    success: false,
-                    message: `Недвижимость имеет недопустимый статус: ${currentStatus}`
-                });
-            }
-
-            // Если статус "активен", разрешаем бронирование
-            if (currentStatus === 'активен') {
-                const reserveQuery = `
-                    UPDATE properties 
-                    SET booked_by = ?, status = 'забронирован' 
-                    WHERE id = ? AND status = 'активен'
-                `;
-                db.run(reserveQuery, [userId, propertyId], function (err) {
-                    if (err) {
-                        console.error("Ошибка при бронировании недвижимости:", err.message);
-                        return resolve({ success: false, message: 'Ошибка при бронировании недвижимости' });
-                    }
-                    if (this.changes > 0) {
-                        return resolve({ success: true, message: 'Недвижимость успешно забронирована' });
-                    } else {
-                        return resolve({
-                            success: false,
-                            message: 'Недвижимость не удалось забронировать. Попробуйте еще раз.'
-                        });
-                    }
-                });
-            }
-        });
-    });
-});
-
-//Отмена бронирования
-ipcMain.handle('cancelReservation', async (event, propertyId, userId) => {
-  console.log('Получен userId:', userId);
-    try {
-        // Получаем информацию о недвижимости
-        const property = await new Promise((resolve, reject) => {
-            db.get("SELECT * FROM properties WHERE id = ?", [propertyId], (err, row) => {
-                if (err) reject(err);
-                else resolve(row);
-            });
-        });
-
-        if (!property) {
-            return { success: false, message: 'Недвижимость не найдена.' };
-        }
-
-        // Получаем информацию о пользователе
-        const user = await new Promise((resolve, reject) => {
-            db.get("SELECT * FROM users WHERE id = ?", [userId], (err, row) => {
-                if (err) reject(err);
-                else resolve(row);
-            });
-        });
-
-        if (!user) {
-            return { success: false, message: 'Пользователь не найден.' };
-        }
-
-        // Проверяем, является ли пользователь тем, кто забронировал недвижимость
-        if (property.booked_by !== userId && user.role !== 'super_admin') {
-            return { success: false, message: 'У вас нет прав для отмены бронирования.' };
-        }
-
-        // Отменяем бронирование
-        await new Promise((resolve, reject) => {
-            db.run(
-                "UPDATE properties SET booked_by = NULL, status = 'активен' WHERE id = ?",
-                [propertyId],
-                (err) => {
-                    if (err) reject(err);
-                    else resolve();
-                }
-            );
-        });
-
-        return { success: true };
-    } catch (error) {
-        console.error('Ошибка при отмене бронирования:', error);
-        return { success: false, message: 'Произошла ошибка при отмене бронирования.' };
-    }
-});
-
-
-// Функция для проверки, является ли пользователь супер админом
-function isSuperAdmin(role) {
-    // Проверка, является ли роль пользователя 'super_admin'
-    return role === 'super_admin';
-}
-
-
-
-

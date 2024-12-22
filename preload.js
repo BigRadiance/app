@@ -17,6 +17,6 @@ contextBridge.exposeInMainWorld('api', {
     deleteUser: (id) => ipcRenderer.invoke("deleteUser", { id }),
     // Бронирование недвижимости
     reserveProperty: (propertyId, userId) => ipcRenderer.invoke('reserveProperty', propertyId, userId),
-    cancelReservation: (propertyId, userId) => {return ipcRenderer.invoke('cancelReservation', propertyId, userId);}
-    // другие функции
+    getCurrentUserId: () => ipcRenderer.invoke('getCurrentUserId'),
+    cancelReservation: (propertyId, userId) => ipcRenderer.invoke('cancelReservation', propertyId, userId),
 });
