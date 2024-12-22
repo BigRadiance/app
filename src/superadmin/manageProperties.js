@@ -1,27 +1,30 @@
 // Получаем данные о недвижимости при загрузке страницы
 window.api.getProperties().then(properties => {
     const tableBody = document.querySelector("#properties-table tbody");
-    properties.forEach(property => {
-        const row = document.createElement("tr");
-        row.innerHTML = `
-                <td>${property.id}</td>
-                <td>${property.title}</td>
-                <td>${property.description}</td>
-                <td>${property.price}</td>
-                <td>${property.address}</td> 
-                <td>
-                    <select class="status-select" data-id="${property.id}">
-                        <option value="активен" ${property.status === "активен" ? "selected" : ""}>Активен</option>
-                        <option value="продан" ${property.status === "продан" ? "selected" : ""}>Продан</option>
-                        <option value="арендован" ${property.status === "арендован" ? "selected" : ""}>Арендован</option>
-                        <option value="забронирован" ${property.status === "забронирован" ? "selected" : ""}>Забронирован</option>
-                    </select>
-                </td>
-                <td><button class="edit-btn" data-id="${property.id}">Редактировать</button></td>
-                <td><button class="delete-btn" data-id="${property.id}">Удалить</button></td>
-            `;
-        tableBody.appendChild(row);
-    });
+    // Проверяем статус недвижимости
+properties.forEach(property => {
+    const isReserved = property.status === "забронирован";
+
+    const row = document.createElement("tr");
+    row.innerHTML = `
+        <td>${property.id}</td>
+        <td>${property.title}</td>
+        <td>${property.description}</td>
+        <td>${property.price}</td>
+        <td>${property.address}</td>
+        <td>
+            <select class="status-select" data-id="${property.id}">
+                <option value="активен" ${property.status === "активен" ? "selected" : ""}>активен</option>
+                <option value="продан" ${property.status === "продан" ? "selected" : ""}>продан</option>
+                <option value="арендован" ${property.status === "арендован" ? "selected" : ""}>арендован</option>
+                <option value="забронирован" ${property.status === "забронирован" ? "selected" : ""} ${isReserved ? "disabled" : ""}>забронирован</option>
+            </select>
+        </td>
+        <td><button class="edit-btn" data-id="${property.id}">Редактировать</button></td>
+        <td><button class="delete-btn" data-id="${property.id}">Удалить</button></td>
+    `;
+    tableBody.appendChild(row);
+});
     // Обработчик изменения статуса
         document.querySelectorAll(".status-select").forEach((select) => {
             select.addEventListener("change", async (event) => {

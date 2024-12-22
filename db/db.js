@@ -29,22 +29,24 @@ db.serialize(() => {
     });
 });
 
-// Создание таблицы недвижимости, если она не существует
+// Обновленная структура таблицы недвижимости
 db.serialize(() => {
     db.run(`
         CREATE TABLE IF NOT EXISTS properties (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             title TEXT NOT NULL,
             description TEXT,
-            address TEXT,
             price REAL,
-            status TEXT DEFAULT 'available',
+            status TEXT DEFAULT 'активен',  -- Статус по умолчанию
+            address TEXT,
+            reserved_by INTEGER,
             booked_by INTEGER,
+            FOREIGN KEY (reserved_by) REFERENCES users(id) ON DELETE SET NULL,
             FOREIGN KEY (booked_by) REFERENCES users(id) ON DELETE SET NULL
         );
     `, (err) => {
         if (err) {
-            console.error("Ошибка при создании таблицы недвижимости:", err.message);
+            console.error("Ошибка при создании или изменении таблицы недвижимости:", err.message);
         }
     });
 });

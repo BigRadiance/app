@@ -10,6 +10,7 @@ document.getElementById("manage-properties-btn").addEventListener("click", () =>
 
 
 document.getElementById('logout-btn').addEventListener('click', () => {
-    // Логика выхода из системы, если нужно
-    window.location.href = "../index.html";  // Вернуться на страницу логина
+    localStorage.removeItem('userId');
+    window.location.href = "../index.html"; // Возвращаемся на страницу входа
 });
+

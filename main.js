@@ -280,35 +280,113 @@ ipcMain.handle("updatePropertyStatus", async (_, { id, status }) => {
 
 // Обработчик для бронирования недвижимости
 ipcMain.handle('reserveProperty', (event, propertyId, userId) => {
+  console.log("propertyId:", propertyId);
     return new Promise((resolve, reject) => {
-        const query = `
-            UPDATE properties 
-            SET booked_by = ?, status = 'booked' 
-            WHERE id = ? AND status = 'available'
-        `;
-        db.run(query, [userId, propertyId], function (err) {
-            if (err) {
-                console.error("Ошибка при бронировании недвижимости:", err.message);
-                return resolve({ success: false, message: 'Ошибка при бронировании недвижимости' });
+        const statusQuery = `SELECT status FROM properties WHERE id = ?`;
+        db.get(statusQuery, [propertyId], (statusErr, row) => {
+            if (statusErr) {
+                console.error("Ошибка при проверке статуса недвижимости:", statusErr.message);
+                return resolve({ success: false, message: 'Ошибка при проверке статуса недвижимости' });
             }
-            if (this.changes === 0) {
-                console.log("Недвижимость уже забронирована или изменен статус");
-                return resolve({ success: false, message: 'Недвижимость уже забронирована' });
+
+            if (!row) {
+                return resolve({ success: false, message: 'Недвижимость не найдена' });
             }
-            console.log("Недвижимость забронирована", propertyId);
-            resolve({ success: true });
+
+            const currentStatus = row.status.toLowerCase();
+
+            if (['продан', 'арендован', 'забронирован'].includes(currentStatus)) {
+                return resolve({
+                    success: false,
+                    message: `Недвижимость имеет недопустимый статус: ${currentStatus}`
+                });
+            }
+
+            // Если статус "активен", разрешаем бронирование
+            if (currentStatus === 'активен') {
+                const reserveQuery = `
+                    UPDATE properties 
+                    SET booked_by = ?, status = 'забронирован' 
+                    WHERE id = ? AND status = 'активен'
+                `;
+                db.run(reserveQuery, [userId, propertyId], function (err) {
+                    if (err) {
+                        console.error("Ошибка при бронировании недвижимости:", err.message);
+                        return resolve({ success: false, message: 'Ошибка при бронировании недвижимости' });
+                    }
+                    if (this.changes > 0) {
+                        return resolve({ success: true, message: 'Недвижимость успешно забронирована' });
+                    } else {
+                        return resolve({
+                            success: false,
+                            message: 'Недвижимость не удалось забронировать. Попробуйте еще раз.'
+                        });
+                    }
+                });
+            }
         });
     });
 });
 
-// Обработка разрыва бронирования супер админом
-ipcMain.handle('cancelReservation', (event, propertyId) => {
-    return new Promise((resolve, reject) => {
-        db.run('UPDATE properties SET status = "available", booked_by = NULL WHERE id = ?', [propertyId], function(err) {
-            if (err) {
-                return reject({ success: false, message: "Ошибка при отмене бронирования" });
-            }
-            resolve({ success: true });
+//Отмена бронирования
+ipcMain.handle('cancelReservation', async (event, propertyId, userId) => {
+  console.log('Получен userId:', userId);
+    try {
+        // Получаем информацию о недвижимости
+        const property = await new Promise((resolve, reject) => {
+            db.get("SELECT * FROM properties WHERE id = ?", [propertyId], (err, row) => {
+                if (err) reject(err);
+                else resolve(row);
+            });
         });
-    });
+
+        if (!property) {
+            return { success: false, message: 'Недвижимость не найдена.' };
+        }
+
+        // Получаем информацию о пользователе
+        const user = await new Promise((resolve, reject) => {
+            db.get("SELECT * FROM users WHERE id = ?", [userId], (err, row) => {
+                if (err) reject(err);
+                else resolve(row);
+            });
+        });
+
+        if (!user) {
+            return { success: false, message: 'Пользователь не найден.' };
+        }
+
+        // Проверяем, является ли пользователь тем, кто забронировал недвижимость
+        if (property.booked_by !== userId && user.role !== 'super_admin') {
+            return { success: false, message: 'У вас нет прав для отмены бронирования.' };
+        }
+
+        // Отменяем бронирование
+        await new Promise((resolve, reject) => {
+            db.run(
+                "UPDATE properties SET booked_by = NULL, status = 'активен' WHERE id = ?",
+                [propertyId],
+                (err) => {
+                    if (err) reject(err);
+                    else resolve();
+                }
+            );
+        });
+
+        return { success: true };
+    } catch (error) {
+        console.error('Ошибка при отмене бронирования:', error);
+        return { success: false, message: 'Произошла ошибка при отмене бронирования.' };
+    }
 });
+
+
+// Функция для проверки, является ли пользователь супер админом
+function isSuperAdmin(role) {
+    // Проверка, является ли роль пользователя 'super_admin'
+    return role === 'super_admin';
+}
+
+
+
+

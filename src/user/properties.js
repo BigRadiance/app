@@ -2,12 +2,6 @@
 window.api.getProperties().then(properties => {
     const tableBody = document.querySelector("#properties-table tbody");
 
-    // Добавляем проверку, если данных нет
-    if (properties.length === 0) {
-        tableBody.innerHTML = `<tr><td colspan="6">Нет данных о недвижимости</td></tr>`;
-        return;
-    }
-
     properties.forEach(property => {
         const row = document.createElement("tr");
         row.innerHTML = `
@@ -17,6 +11,7 @@ window.api.getProperties().then(properties => {
             <td>${property.address}</td>
             <td>${property.status}</td>
             <td><button class="reserve-btn" data-id="${property.id}">Забронировать</button></td>
+            <td><button class="reserve-btn2" data-id="${property.id}">Отменить</button></td>
         `;
         tableBody.appendChild(row);
     });
@@ -25,6 +20,7 @@ window.api.getProperties().then(properties => {
     document.querySelectorAll('.reserve-btn').forEach(button => {
         button.addEventListener('click', async (event) => {
             const propertyId = event.target.getAttribute('data-id');
+            
             const userId = localStorage.getItem('userId');
             
             if (!userId) {
@@ -38,6 +34,7 @@ window.api.getProperties().then(properties => {
                     alert('Недвижимость успешно забронирована!');
                     event.target.textContent = 'Забронировано';
                     event.target.disabled = true; // Отключаем кнопку
+                    location.reload();
                 } else {
                     alert('Ошибка при бронировании недвижимости: ' + response.message);
                 }
@@ -47,12 +44,45 @@ window.api.getProperties().then(properties => {
             }
         });
     });
+
+    // Привязка обработчиков к кнопкам отмены бронирования
+    document.querySelectorAll('.reserve-btn2').forEach(button => {
+        button.addEventListener('click', async (event) => {
+            const propertyId = event.target.dataset.id;
+
+            // Переносим вызов получения userId в этот блок
+            const userId = localStorage.getItem('userId');
+            if (!userId) {
+                alert('Пожалуйста, войдите в систему, чтобы отменить бронирование.');
+                return;
+            }
+
+            try {
+                const response = await window.api.cancelReservation(propertyId, userId);
+                if (response.success) {
+                    alert('Бронирование успешно отменено!');
+                    event.target.textContent = 'Отменено';
+                    event.target.disabled = true; // Отключаем кнопку
+                    // Обновляем статус недвижимости, например, в строке таблицы
+                    const row = event.target.closest('tr');
+                    const statusCell = row.querySelector('.status-cell');
+                    if (statusCell) {
+                        statusCell.textContent = 'Активен';  // Статус возвращается к "Активен"
+                    }
+                } else {
+                    alert('Ошибка при отмене бронирования: ' + response.message);
+                }
+            } catch (error) {
+                console.error("Ошибка при отмене бронирования:", error);
+                alert('Что-то пошло не так, попробуйте позже.');
+            }
+        });
+    });
 }).catch(error => {
     console.error("Ошибка при получении данных о недвижимости:", error);
     alert('Не удалось загрузить список недвижимости.');
 });
-
-// Обработчик кнопки Назад
+// Обработчик кнопки «Назад»
 document.getElementById('back-btn').addEventListener('click', () => {
-    window.location.href = "userMenu.html"; // Возвращаемся на страницу меню пользователя
+    window.location.href = "userMenu.html";  // Возвращаемся в меню
 });

@@ -7,8 +7,7 @@ contextBridge.exposeInMainWorld('api', {
     addProperty: (property) => ipcRenderer.invoke('addProperty', property),
     editProperty: (id, property) => ipcRenderer.invoke('editProperty', { id, ...property }),
     updatePropertyStatus: (id, status) => ipcRenderer.invoke("updatePropertyStatus", { id, status }),
-    reserveProperty: (propertyId, userId) => ipcRenderer.invoke('reserveProperty', propertyId, userId),
-    cancelReservation: (propertyId) => ipcRenderer.invoke('cancelReservation', propertyId),
+    
     
     // Управление пользователями
     login: (loginOrEmail, password) => ipcRenderer.invoke('login', { loginOrEmail, password }),
@@ -18,5 +17,6 @@ contextBridge.exposeInMainWorld('api', {
     deleteUser: (id) => ipcRenderer.invoke("deleteUser", { id }),
     // Бронирование недвижимости
     reserveProperty: (propertyId, userId) => ipcRenderer.invoke('reserveProperty', propertyId, userId),
+    cancelReservation: (propertyId, userId) => {return ipcRenderer.invoke('cancelReservation', propertyId, userId);}
     // другие функции
 });

@@ -1,7 +1,9 @@
+
 // Переключение на форму регистрации
 document.getElementById('register-btn').addEventListener('click', () => {
     document.getElementById('login-form').style.display = 'none';
     document.getElementById('register-form').style.display = 'block';
+
     // Очищаем поля регистрации
     document.getElementById('reg-username').value = '';
     document.getElementById('reg-password').value = '';
@@ -18,6 +20,7 @@ document.getElementById('register-btn').addEventListener('click', () => {
 document.getElementById('back-to-login-btn').addEventListener('click', () => {
     document.getElementById('register-form').style.display = 'none';
     document.getElementById('login-form').style.display = 'block';
+
     // Очищаем поля логина
     document.getElementById('username').value = '';
     document.getElementById('password').value = '';
@@ -29,26 +32,33 @@ document.getElementById('back-to-login-btn').addEventListener('click', () => {
 });
 
 // Обработчик формы логина
+console.log("Настройка обработчика submit");
 document.getElementById('loginForm').addEventListener('submit', async (event) => {
+    console.log('Submit event triggered');
     event.preventDefault();
+    
     const usernameOrEmail = document.getElementById('username').value;
     const password = document.getElementById('password').value;
 
-    // Скрываем ошибку и разблокируем поля ввода перед отправкой запроса
     document.getElementById('login-error').style.display = 'none';
-    document.getElementById('username').disabled = false;
-    document.getElementById('password').disabled = false;
 
     const response = await window.api.login(usernameOrEmail, password);
+    console.log('Login Response:', response);
 
     if (response.success) {
-        // Переход в меню в зависимости от роли
+        // Сохраняем userId в localStorage после успешного входа
+        localStorage.setItem('userId', response.userId);
+
+        // Открываем соответствующее меню в зависимости от роли
         openMenu(response.role);
+
+        console.log('User ID stored in localStorage:', response.userId);
     } else {
-        // Отображаем ошибку, если логин не удался
+      console.error('Форма loginForm не найдена');
         displayError('login-error', response.message);
     }
 });
+
 
 // Обработчик формы регистрации
 document.getElementById('registerForm').addEventListener('submit', async (event) => {
@@ -61,89 +71,73 @@ document.getElementById('registerForm').addEventListener('submit', async (event)
     const response = await window.api.register(username, password, email, phone);
 
     if (response.success) {
-        alert("Регистрация прошла успешно. Можно входить.");
+        alert('Регистрация прошла успешно. Теперь вы можете войти.');
         window.location.reload();
     } else {
         displayError('register-error', response.message);
     }
 });
 
-
-// Функция для отображения ошибок
+// Функция отображения ошибок
 function displayError(elementId, message) {
     const errorElement = document.getElementById(elementId);
     errorElement.textContent = message;
     errorElement.style.display = 'block';
 }
 
-// Функция для перехода в меню
+// Функция перехода в меню в зависимости от роли
 function openMenu(role) {
-    // В зависимости от роли показываем разные меню
-    // Вместо перехода на другую страницу, будем показывать нужные элементы на текущей странице
     switch (role) {
         case 'super_admin':
-            // Здесь можно скрыть или показать элементы, связанные с супер админом
             showSuperAdminMenu();
             break;
         case 'admin':
-            // Аналогично для админа
             showAdminMenu();
             break;
         case 'user':
-            // Для обычного пользователя
             showUserMenu();
             break;
         default:
-            break;
+            console.error('Неизвестная роль:', role);
     }
 }
 
-// Функции для показа меню в зависимости от роли
+// Функции для отображения меню
 function showSuperAdminMenu() {
-    document.getElementById('superadmin-menu').style.display = 'block';
-    document.getElementById('admin-menu').style.display = 'none';
-    document.getElementById('user-menu').style.display = 'none';
+    window.location.href = 'superadmin/superAdminMenu.html';
 }
 
 function showAdminMenu() {
-    document.getElementById('superadmin-menu').style.display = 'none';
-    document.getElementById('admin-menu').style.display = 'block';
-    document.getElementById('user-menu').style.display = 'none';
+    window.location.href = 'admin/adminMenu.html';
 }
 
 function showUserMenu() {
-    document.getElementById('superadmin-menu').style.display = 'none';
-    document.getElementById('admin-menu').style.display = 'none';
-    document.getElementById('user-menu').style.display = 'block';
+    window.location.href = 'user/userMenu.html';
 }
 
 // Получение всех пользователей
-window.api.getAllUsers = async () => {
-    return await ipcRenderer.invoke('getAllUsers');
-};
+window.api.getAllUsers = async () => await ipcRenderer.invoke('getAllUsers');
 
 // Обновление пользователя
-window.api.updateUser = async (userData) => {
-    return await ipcRenderer.invoke('updateUser', userData);
-};
+window.api.updateUser = async (userData) => await ipcRenderer.invoke('updateUser', userData);
 
 // Удаление пользователя
-window.api.deleteUser = async (userId) => {
-    return await ipcRenderer.invoke('deleteUser', userId);
-};
+window.api.deleteUser = async (userId) => await ipcRenderer.invoke('deleteUser', userId);
+
+// Обработчик смены роли пользователя
 async function handleRoleChange(event) {
-    const userId = event.target.getAttribute("data-id");
+    const userId = event.target.getAttribute('data-id');
     const newRole = event.target.value;
 
     try {
-        const result = await window.api.updateUserRole(userId, newRole); // Вызываем IPC
+        const result = await window.api.updateUserRole(userId, newRole);
         if (result.success) {
-            alert("Роль успешно обновлена!");
+            alert('Роль успешно обновлена!');
         } else {
-            alert(result.message || "Не удалось обновить роль.");
+            alert(result.message || 'Не удалось обновить роль.');
         }
     } catch (error) {
-        console.error("Ошибка при обновлении роли:", error);
-        alert("Не удалось обновить роль.");
+        console.error('Ошибка при обновлении роли:', error);
+        alert('Не удалось обновить роль.');
     }
 }
