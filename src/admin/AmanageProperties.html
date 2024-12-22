@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Управление недвижимостью</title>
+    <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+    <div id="manage-properties">
+        <h1>Управление недвижимостью</h1>
+        <table id="properties-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Название</th>
+                    <th>Описание</th>
+                    <th>Цена</th>
+                    <th>Адресс</th>
+                    <th>Статус</th>
+                    <th>Редактирование</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Здесь будет список недвижимости -->
+            </tbody>
+        </table>
+        <button id="add-property-btn">Добавить недвижимость</button>
+        <button id="back-btn">Назад</button>
+    </div>
+<div id="property-modal">
+    <div class="modal-content">
+        <h2 id="modal-title"></h2>
+        <label for="property-title">Название:</label>
+        <input type="text" id="property-title" />
+
+        <label for="property-description">Описание:</label>
+        <input type="text" id="property-description" />
+
+        <label for="property-price">Цена:</label>
+        <input type="number" id="property-price" />
+
+        <label for="property-address">Адрес:</label>
+        <input type="text" id="property-address" />
+
+        <button id="save-property-btn">Сохранить</button>
+        <button id="close-modal-btn">Закрыть</button>
+    </div>
+</div>
+    <script src="AmanageProperties.js"></script>
+</body>
+</html>

@@ -1,16 +1,23 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Menu</title>
+    <title>Меню главного администратора</title>
     <link rel="stylesheet" href="../style.css">
 </head>
 <body>
-    <h1>Admin Menu</h1>
-    <button id="manage-users">Manage Users</button>
-    <button id="view-reports">View Reports</button>
-    <div class="message-box"></div>
+    <div id="superadmin-menu">
+        <h1>Меню Администратора</h1>
+        <p>Добро пожаловать, Администратор! Здесь ты можешь управлять системой.</p>
+        
+        <div>
+            <button id="manage-users-btn">Управление пользователями</button>
+            <button id="manage-properties-btn">Управление недвижимостью</button>
+            <button id="logout-btn">Выход</button>
+        </div>
+    </div>
+
     <script src="adminMenu.js"></script>
 </body>
 </html>

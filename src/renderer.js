@@ -147,23 +147,3 @@ async function handleRoleChange(event) {
         alert("Не удалось обновить роль.");
     }
 }
-// Получаем текущего пользователя
-function getCurrentUser() {
-    return JSON.parse(localStorage.getItem('currentUser'));  // Получаем текущего пользователя из localStorage
-}
-
-// Проверяем, является ли пользователь супер администратором
-function checkIfSuperAdmin() {
-    const user = getCurrentUser();
-    return user && user.role === 'super_admin';  // Если роль пользователя - super_admin
-}
-
-window.api.removeReservation(propertyId, userId, isSuperAdmin)
-    .then(response => {
-        if (response.success) {
-            alert("Бронь успешно снята!");
-        }
-    })
-    .catch(error => {
-        alert(error.message);  // Показываем ошибку, если она произошла
-    });

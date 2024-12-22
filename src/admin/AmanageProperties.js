@@ -9,45 +9,10 @@ window.api.getProperties().then(properties => {
                 <td>${property.description}</td>
                 <td>${property.price}</td>
                 <td>${property.address}</td> 
-                <td>
-                    <select class="status-select" data-id="${property.id}">
-                        <option value="активен" ${property.status === "активен" ? "selected" : ""}>Активен</option>
-                        <option value="продан" ${property.status === "продан" ? "selected" : ""}>Продан</option>
-                        <option value="арендован" ${property.status === "арендован" ? "selected" : ""}>Арендован</option>
-                        <option value="забронирован" ${property.status === "забронирован" ? "selected" : ""}>Забронирован</option>
-                    </select>
-                </td>
+                <td>${property.status}</td>
                 <td><button class="edit-btn" data-id="${property.id}">Редактировать</button></td>
-                <td><button class="delete-btn" data-id="${property.id}">Удалить</button></td>
             `;
         tableBody.appendChild(row);
-    });
-    // Обработчик изменения статуса
-        document.querySelectorAll(".status-select").forEach((select) => {
-            select.addEventListener("change", async (event) => {
-                const propertyId = event.target.getAttribute("data-id");
-                const newStatus = event.target.value;
-
-                try {
-                    await window.api.updatePropertyStatus(propertyId, newStatus);
-                    alert("Статус успешно обновлен!");
-                } catch (error) {
-                    console.error("Ошибка обновления статуса:", error);
-                    alert("Не удалось обновить статус.");
-                }
-            });
-        });
-
-    // Обработчик для кнопки удаления
-    document.querySelectorAll(".delete-btn").forEach(button => {
-        button.addEventListener("click", async (event) => {
-            const propertyId = event.target.getAttribute("data-id");
-            await window.api.deleteProperty(propertyId);
-            setTimeout(() => {
-    window.location.reload();
-}, 100);  // Небольшая задержка перед перезагрузкой страницы
-
-        });
     });
 
     // Обработчик для кнопки редактирования
@@ -65,7 +30,7 @@ window.api.getProperties().then(properties => {
 
 // Обработчик кнопки «Назад»
 document.getElementById('back-btn').addEventListener('click', () => {
-    window.location.href = "superAdminMenu.html";  // Возвращаемся в меню
+    window.location.href = "adminMenu.html";  // Возвращаемся в меню
 });
 
 // Модальное окно для редактирования и добавления недвижимости
@@ -141,23 +106,10 @@ closeModalButton.addEventListener("click", closeModal);
 
 // Обработчик для кнопки добавления
 document.getElementById("add-property-btn").addEventListener("click", () => {
-    openModal("Добавить Недвижимость");
+    openModal("Добавить недвижимость");
 });
 
 window.addEventListener("beforeunload", () => {
     closeModal();
 });
-document.querySelectorAll('.cancel-reservation-btn').forEach(button => {
-    button.addEventListener('click', async (event) => {
-        const propertyId = event.target.getAttribute('data-id');
 
-        const response = await window.api.cancelReservation(propertyId);
-
-        if (response.success) {
-            alert("Бронирование отменено!");
-            window.location.reload();
-        } else {
-            alert("Ошибка при отмене бронирования: " + response.message);
-        }
-    });
-});
